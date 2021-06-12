@@ -1,4 +1,4 @@
-FROM golang:1.15.6 as build
+FROM golang:1.16.5 as build
 
 ENV CGO_ENABLED=0
 WORKDIR /workspace
@@ -7,10 +7,10 @@ RUN go mod download
 ADD . .
 RUN go build -o webserver -ldflags '-w -s' .
 
-FROM scratch
+FROM gcr.io/distroless/static
 
-COPY --from=build /workspace/webserver /webserver
+COPY --from=build /workspace/webserver /app/webserver
 
 WORKDIR /www
 
-ENTRYPOINT ["/webserver"]
+ENTRYPOINT ["/app/webserver"]
