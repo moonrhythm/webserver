@@ -1,5 +1,5 @@
 module github.com/moonrhythm/webserver
 
-go 1.15
+go 1.16
 
-require github.com/moonrhythm/webstatic v2.1.1+incompatible
+require github.com/moonrhythm/webstatic/v4 v4.0.0
