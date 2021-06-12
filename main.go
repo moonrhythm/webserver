@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -25,8 +28,9 @@ var (
 )
 
 var (
-	serveDir   http.FileSystem
-	fileServer http.Handler
+	serveDir       http.FileSystem
+	fileServer     http.Handler
+	notFoundBuffer []byte
 )
 
 func main() {
@@ -42,6 +46,7 @@ func main() {
 
 	serveDir = http.Dir(*dir)
 	fileServer = http.FileServer(serveDir)
+	loadNotFound()
 
 	log.Printf("start web server on %d", *port)
 	srv := parapet.NewBackend()
@@ -68,11 +73,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if !*spa {
-			if *notFoundFile != "" {
-				http.ServeFile(w, r, *notFoundFile)
-				return
-			}
-			http.NotFound(w, r)
+			serveNotFound(w, r)
 			return
 		}
 	}
@@ -105,4 +106,24 @@ func tryServeHTML(w http.ResponseWriter, r *http.Request) (served bool) {
 	setCacheControl(w)
 	fileServer.ServeHTTP(w, r)
 	return true
+}
+
+func loadNotFound() {
+	notFoundBuffer = []byte("404 page not found")
+	if *notFoundFile == "" {
+		return
+	}
+
+	tmpBuff, err := ioutil.ReadFile(*notFoundFile)
+	if err != nil {
+		return
+	}
+	notFoundBuffer = tmpBuff
+}
+
+func serveNotFound(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusNotFound)
+	io.Copy(w, bytes.NewReader(notFoundBuffer))
 }
