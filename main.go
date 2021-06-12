@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/moonrhythm/parapet"
+	"github.com/moonrhythm/parapet/pkg/logger"
 	"github.com/moonrhythm/webstatic/v4"
 )
 
@@ -42,11 +44,21 @@ func main() {
 	fileServer = http.FileServer(serveDir)
 
 	log.Printf("start web server on %d", *port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", *port), &webstatic.Handler{
+	srv := parapet.NewBackend()
+	srv.Addr = fmt.Sprintf(":%d", *port)
+	srv.H2C = true
+	srv.Handler = &webstatic.Handler{
 		FileSystem:   serveDir,
 		CacheControl: *assetsCacheControl,
 		Fallback:     http.HandlerFunc(index),
-	}))
+	}
+
+	srv.Use(logger.Stdout())
+
+	err := srv.ListenAndServe()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
