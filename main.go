@@ -3,14 +3,13 @@ package main
 import (
 	"bytes"
 	"flag"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"github.com/moonrhythm/parapet"
 	"github.com/moonrhythm/parapet/pkg/logger"
@@ -22,7 +21,8 @@ var (
 	indexCacheControl  = flag.String("index.cache-control", "no-cache", "index cache control")
 	notFoundFile       = flag.String("notfound", "404.html", "404 file")
 	spa                = flag.Bool("spa", true, "spa mode")
-	port               = flag.Int("port", 8080, "http port (override by env PORT)")
+	port               = flag.String("port", "8080", "http port (override by env PORT)")
+	bindIP             = flag.String("bind-ip", "", "ip to listen")
 	assetsCacheControl = flag.String("asset.cache-control", "public, max-age=3600", "assets cache control")
 	dir                = flag.String("dir", ".", "serve dir")
 )
@@ -38,19 +38,16 @@ func main() {
 
 	envPort := os.Getenv("PORT")
 	if envPort != "" {
-		p, _ := strconv.Atoi(envPort)
-		if p > 0 {
-			*port = p
-		}
+		*port = envPort
 	}
 
 	serveDir = http.Dir(*dir)
 	fileServer = http.FileServer(serveDir)
-	loadNotFound()
+	notFoundBuffer = []byte("404 page not found")
+	loadBuffer(*notFoundFile, &notFoundBuffer)
 
-	log.Printf("start web server on %d", *port)
 	srv := parapet.NewBackend()
-	srv.Addr = fmt.Sprintf(":%d", *port)
+	srv.Addr = net.JoinHostPort(*bindIP, *port)
 	srv.H2C = true
 	srv.Handler = &webstatic.Handler{
 		FileSystem:   serveDir,
@@ -60,6 +57,7 @@ func main() {
 
 	srv.Use(logger.Stdout())
 
+	log.Printf("start web server on %s", srv.Addr)
 	err := srv.ListenAndServe()
 	if err != nil {
 		log.Fatal(err)
@@ -76,6 +74,9 @@ func index(w http.ResponseWriter, r *http.Request) {
 			serveNotFound(w, r)
 			return
 		}
+
+		serveIndexFallback(w, r)
+		return
 	}
 
 	setCacheControl(w)
@@ -108,17 +109,22 @@ func tryServeHTML(w http.ResponseWriter, r *http.Request) (served bool) {
 	return true
 }
 
-func loadNotFound() {
-	notFoundBuffer = []byte("404 page not found")
-	if *notFoundFile == "" {
+func loadBuffer(fn string, buf *[]byte) {
+	if fn == "" {
 		return
 	}
 
-	tmpBuff, err := ioutil.ReadFile(*notFoundFile)
+	tmpBuff, err := ioutil.ReadFile(fn)
 	if err != nil {
 		return
 	}
-	notFoundBuffer = tmpBuff
+	*buf = tmpBuff
+}
+
+func serveIndexFallback(w http.ResponseWriter, r *http.Request) {
+	// prevent new files that were not fully serve yet to cache on cdn
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	http.ServeFile(w, r, *indexFile)
 }
 
 func serveNotFound(w http.ResponseWriter, r *http.Request) {
