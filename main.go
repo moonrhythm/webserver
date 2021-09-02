@@ -56,6 +56,7 @@ func main() {
 	}
 
 	srv.Use(logger.Stdout())
+	srv.Use(parapet.MiddlewareFunc(securityHeaders))
 
 	log.Printf("start web server on %s", srv.Addr)
 	err := srv.ListenAndServe()
@@ -129,7 +130,15 @@ func serveIndexFallback(w http.ResponseWriter, r *http.Request) {
 
 func serveNotFound(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusNotFound)
 	io.Copy(w, bytes.NewReader(notFoundBuffer))
+}
+
+func securityHeaders(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Frame-Options", "deny")
+		w.Header().Set("X-XSS-Protection", "1; mode=block")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		h.ServeHTTP(w, r)
+	})
 }
