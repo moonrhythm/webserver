@@ -1,4 +1,4 @@
-FROM golang:1.17.3 as build
+FROM golang:1.18 as build
 
 ENV CGO_ENABLED=0
 WORKDIR /workspace
@@ -9,7 +9,7 @@ RUN go build -o webserver -ldflags '-w -s' .
 
 FROM gcr.io/distroless/static
 
-COPY --from=build /workspace/webserver /app/webserver
+COPY --from=build --link /workspace/webserver /app/webserver
 
 WORKDIR /www
 
