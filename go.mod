@@ -9,6 +9,6 @@ require (
 
 require (
 	github.com/kavu/go_reuseport v1.5.0 // indirect
-	golang.org/x/net v0.8.0 // indirect
-	golang.org/x/text v0.8.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 )
