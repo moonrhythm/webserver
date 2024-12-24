@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"flag"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -115,7 +114,7 @@ func loadBuffer(fn string, buf *[]byte) {
 		return
 	}
 
-	tmpBuff, err := ioutil.ReadFile(fn)
+	tmpBuff, err := os.ReadFile(fn)
 	if err != nil {
 		return
 	}
